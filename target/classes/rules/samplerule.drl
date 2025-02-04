@@ -1,0 +1,27 @@
+import com.abcdef.springboot3withdrools.model.rule.Position;
+import com.abcdef.springboot3withdrools.model.rule.AssetClassBoundary;
+import com.abcdef.springboot3withdrools.model.rule.Portfolio;
+
+rule "Asset Class Range Check"
+when
+    $boundary: AssetClassBoundary($assetClass: assetClass, $min: lowerBound, $max: upperBound)
+    $total: Number() from accumulate(
+        Position(assetClass == $assetClass, $mv: marketValue),
+        sum($mv)
+    )
+    eval($total >= $min && $total <= $max)
+    $position: Position(assetClass == $assetClass)
+then
+    $position.setPassed(true);
+    System.out.println("Rule fired for asset class: " + $assetClass);
+    System.out.println("Total market value: " + $total);
+    System.out.println("Bounds: [" + $min + ", " + $max + "]");
+end
+
+rule "Risk Rating Passed Check"
+when
+    $portfolio: Portfolio(riskRating >= 5)  // Check if portfolio's riskRating is greater than or equal to 5
+then
+    $portfolio.setRiskPassed(true);  // Mark portfolio as passed if riskRating >= 5
+    System.out.println("Risk passed for portfolio with risk rating: " + $portfolio.getRiskRating());
+end

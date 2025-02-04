@@ -1,0 +1,6 @@
+rule "Test Equality"
+when
+    $x: Integer( this == 5 )
+then
+    System.out.println("The number is 5! Fired!");
+end

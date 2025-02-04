@@ -1,0 +1,12 @@
+package com.abcdef.springboot3withdrools.model.rule;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+public class AssetClassBoundary {
+    private String assetClass;
+    private double lowerBound;
+    private double upperBound;
+}
