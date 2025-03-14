@@ -1,6 +1,7 @@
 package com.abcdef.springboot3withdrools.controller;
 import com.abcdef.springboot3withdrools.listener.AuditingAgendaEventListener;
 import com.abcdef.springboot3withdrools.model.order.OrderDiscount;
+import com.abcdef.springboot3withdrools.model.rule.AssetClassBoundary;
 import com.abcdef.springboot3withdrools.model.rule.Portfolio;
 import com.abcdef.springboot3withdrools.model.rule.Position;
 import com.abcdef.springboot3withdrools.model.rule.Rule;
@@ -18,9 +19,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/portfolios")
@@ -36,62 +37,76 @@ public class PortfolioController {
     private final KieContainer kieContainer;
 
     @PostMapping("/validate")
-    public Portfolio validatePortfolio(@RequestBody Portfolio portfolio) {
-//        List<Rule> activeRules = ruleService.getActiveRules();
-//        KieBase kieBase = droolsService.compileRules(activeRules);
-
-//        DC.put("CORRELATION_ID", UUID.randomUUID().toString().replace("-", "").substring(0, 8));
-//        final KieSession kieSession = kieContainer.newKieSession();
-//        kieSession.addEventListener(listener);
-//        final OrderDiscount orderDiscount = new OrderDiscount();
-//        kieSession.setGlobal("orderDiscount", orderDiscount);
-//        kieSession.insert(orderRequest);
-//        kieSession.fireAllRules();
-//        kieSession.dispose();
-//        log.info("Final Result:{}", orderDiscount);
-
-        // KieSession kieSession = kieBase.newKieSession();
-//        final KieSession kieSession = kieContainer.newKieSession();
-//        portfolio.getPositions().forEach(kieSession::insert);
-//        portfolio.getStrategy().values().forEach(kieSession::insert);
-//
-//        kieSession.fireAllRules();
-//        kieSession.dispose();
-//        final KieSession kieSession = kieContainer.newKieSession();
-//        kieSession.addEventListener(listener);
-//        final OrderDiscount orderDiscount = new OrderDiscount();
-//        kieSession.setGlobal("orderDiscount", orderDiscount);
-//        kieSession.insert(orderRequest);
-//        kieSession.fireAllRules();
-//        kieSession.dispose();
-//        log.info("Final Result:{}", orderDiscount);
-//        return orderDiscount;
-//
+    public List<Portfolio> validatePortfolio(@RequestBody List<Portfolio> portfolios) {
         try {
-            // Create KieSession
+
+
+            Portfolio portfolio = new Portfolio();
+            portfolio.setRiskRating(5);
+
+
+            AssetClassBoundary coreEquityBoundary = new AssetClassBoundary("coreequity", 20.0, 40.0);
+            AssetClassBoundary realEstateBoundary = new AssetClassBoundary("realestate", 10.0, 15.0);
+
+            Map<String, AssetClassBoundary> strategy = Map.of(
+                    "coreequity", coreEquityBoundary,
+                    "realestate", realEstateBoundary
+            );
+            portfolio.setStrategy(strategy);
+
+
+            List<Position> positions = List.of(
+                    new Position(1, "coreequity", 105.0, false),  // Sum = 15 (Fails: 20-40)
+                    new Position(2, "coreequity", 10.0, false),  // Sum = 25 (Passes)
+                    new Position(3, "realestate", 12.0, false)   // Sum = 12 (Passes)
+            );
+            portfolio.setPositions(positions);
+
             KieSession kieSession = kieContainer.newKieSession();
-            // Insert facts (simple Integer value)
-            // Integer testValue = 5;
-            // System.out.println("Inserting fact: " + testValue);
-            portfolio.getPositions().forEach(kieSession::insert);
+
+
             portfolio.getStrategy().values().forEach(kieSession::insert);
-            kieSession.addEventListener(listener);
-            // Fire all rules
-            System.out.println("Firing rules...");
-            int firedRules = kieSession.fireAllRules();
 
-            // Print the number of rules fired
-            System.out.println(firedRules + " rules fired.");
 
-            // Dispose of the session
+            portfolio.getPositions().forEach(kieSession::insert);
+
+
+            int fired = kieSession.fireAllRules();
+            System.out.println(fired + " rules fired.");
+
             kieSession.dispose();
+
+
         } catch (Exception e) {
             e.printStackTrace();
         }
 
 
-
-
-         return portfolio;
+       return null;
     }
+
+
+    @PostMapping("/validateJson")
+    public List<Portfolio> validatePortfolioJson(@RequestBody List<Portfolio> portfolios) {
+        try {
+            KieSession kieSession = kieContainer.newKieSession();
+
+            portfolios.forEach(portfolio -> {
+                // Insert AssetClassBoundaries and Positions
+                portfolio.getStrategy().values().forEach(kieSession::insert);
+                portfolio.getPositions().forEach(kieSession::insert);
+            });
+
+            // Fire rules
+            int fired = kieSession.fireAllRules();
+            System.out.println(fired + " rules fired.");
+
+            kieSession.dispose();
+            return portfolios; // Return updated portfolios
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
 }
